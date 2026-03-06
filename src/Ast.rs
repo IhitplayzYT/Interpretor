@@ -56,6 +56,7 @@ pub mod AST {
         STRING,
         BOOL,
         NULL,
+        CUSTOM(String),
     } 
 
 /// Enum to hold Binary Operators
