@@ -308,6 +308,13 @@ pub mod PARSER {
             Ok(ret)
         }
 
+        /// Parser Helper function
+        /// Evaluates a enum and struct field declaration
+        ///  
+        /// # Returns
+        /// Parser_ret<Vec<(String,Type)>> -> Returns a Parser result object containing a vector of (name,dtype) tuples
+        /// 
+
         fn eval_struct_fields(&mut self) -> Parser_ret<Vec<(String,Type)>>{
             let mut fields = Vec::new();
             while !self.check(&LTOK::RBRACE) {
@@ -325,6 +332,13 @@ pub mod PARSER {
 
             Ok(fields)
         }
+
+        /// Parser Helper function
+        /// Evaluates the type of next token
+        ///  
+        /// # Returns
+        /// Parser_ret<> -> Returns a Parser result object containing the type of the next token in token stream
+        /// 
 
         fn eval_types(&mut self)->Parser_ret<Type>{
             match self.next(){
@@ -1001,7 +1015,7 @@ pub mod PARSER {
     }
     
     /// Parser Helper function
-    /// # Priority 10: !, ~, negate, --, ++, function_calls
+    /// # Priority 10: !, ~, negate, --(pre), ++(pre), function_calls
     /// Evaluates the priority of unary operators
     ///  
     /// # Returns
@@ -1044,7 +1058,7 @@ pub mod PARSER {
     }
 
     /// Parser Helper function
-    /// # Priority 10: fxn_calls()
+    /// # Priority 10: fxn_calls(), ++(post), --(post)
     /// Evaluates the priority of function calls[NOTE: Same priority as the unary operators]
     ///  
     /// # Returns
