@@ -478,7 +478,14 @@ pub mod Analyser {
         /// ```    
 
        pub fn is_compatible(&self,t1: &Type,t2: &Type) -> bool{
-            t1 == t2
+        match (t1, t2) {
+            (Type::INT, Type::INT) => true,
+            (Type::FLOAT, Type::FLOAT) => true,
+            (Type::STRING, Type::STRING) => true,
+            (Type::BOOL, Type::BOOL) => true,
+            (Type::CUSTOM(a), Type::CUSTOM(b)) => a == b,
+            _ => false,
+        }
        }
 
        
