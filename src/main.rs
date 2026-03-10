@@ -43,8 +43,6 @@ fn main() {
     println!("{:?}",t);
     let mut sem = Semantilizer::new();
     let z =  sem.analyse(&t);
-    if let Ok(p) = z{
-        println!("Analysis valid!!");
-    }
+    println!("{:?} !!",z);
     /* ADD THE FRONTEND CODE TO REPLACE THIS  */
 }

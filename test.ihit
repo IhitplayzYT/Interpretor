@@ -2,20 +2,17 @@
 fn main (x: int, z: float) {
 let mut a = 34;
 let mut b = 54;
-let mut x: String = "temp";
-if ( a >= b ) {
-    x = " hello dcwinidw si_() \' .. }  \n " ;
+let mut y: String = "temp";
+if  a >= b {
+    y = " hello dcwinidw si_() \' .. }  \n " ;
 }
 else{
     a ^= (b + 23);
 }
 
-/*
-Error occurs here
-*/
 
 for i in b..a{
-    x = "pls";    
+    y = "pls";    
 }
 
 }
