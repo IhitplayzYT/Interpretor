@@ -15,4 +15,49 @@
     non_upper_case_globals,
     dead_code
 )]
-pub mod Codegen {}
+pub mod Codegen {
+    use crate::Ast::AST::Code;
+
+type Codegen_result<T> = Result<T,CodegenErr>;
+
+
+#[derive(Debug,Clone,PartialEq)]
+struct Codegen {
+    ast: Code,
+    errs: bool,
+}
+
+pub enum CodegenErr{
+    Fatal_err,
+    Custom_err(String)
+}
+
+
+impl Codegen {
+
+pub fn new(ast:Code) -> Self{
+    Self{
+        ast,
+        errs: false,
+    }
+}
+
+
+pub fn Exec(&mut self) -> Codegen_result<bool>{
+
+
+Ok(true)    
+}
+
+
+
+
+
+}
+
+
+
+
+
+
+}
