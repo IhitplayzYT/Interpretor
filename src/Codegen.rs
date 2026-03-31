@@ -16,15 +16,16 @@
     dead_code
 )]
 pub mod Codegen {
-    use crate::{Ast::AST::{BIN_OP, Code, Declare, Expr, Statmnt, Type, UN_OP}, Errors::Err::{self, InterpretorReturn}};
-    use std::{collections::HashMap, fmt::Display};
+    use crate::{Ast::AST::{BIN_OP, Code, Declare, Expr, Statmnt, Type, UN_OP}, Errors::Err::{InterpretorReturn}};
+    use core::panic;
+    use std::{collections::HashMap, fmt::Display, io};
     use crate::Errors::Err::*;
 
     type Codegen_result<T> = Result<T,CodegenErr>;
 
 
     #[derive(Debug,Clone)]
-    struct Codegen {
+    pub struct Codegen {
         env: Env
         // TODO: Add maybe return value that the Exec fn may return to signal a fn main() -> int{}
         // FIXME:
@@ -159,7 +160,7 @@ pub mod Codegen {
             Declare::Struct { name,fields} => {
                 self.env.dtypes.insert(name.clone(), fields.clone());
             },
-            Declare::Enum { name, variations } => {
+            Declare::Enum { name:_name, variations:_variations } => {
                 // TODO:
                 // FIXME:
             },
@@ -169,6 +170,7 @@ pub mod Codegen {
     }
 
     pub fn Exec(&mut self,code: &Code) -> InterpretorReturn<bool>{
+            self.register(&Declare::Function { name: "println".to_string(), rtype: None, args: vec![("fmt".to_string(),Type::STRING,false),("a".to_string(),Type::STRING,false)], body: vec![] })?;  
         for decl in &code.Program{
             self.register(decl)?;
         }        
@@ -378,8 +380,6 @@ pub mod Codegen {
         }
     }
 
-// TODO:
-// FIXME: 
 
     pub fn try_bin_op(op: &BIN_OP,old: Val, new:Val) -> InterpretorReturn<Val> {
        match op {
@@ -491,7 +491,7 @@ pub mod Codegen {
             },Expr::Predecr(x) => {
                 let old= self.env.scopes.get(x.to_string() )?;
                 let new = Self::add(old.clone(), -1.0)?;
-                self.env.scopes.set(x.to_string(), new)?;
+                self.env.scopes.set(x.to_string(), new.clone())?;
                 Ok(new)
             },Expr::Postincr(x) => {
                 let old= self.env.scopes.get(x.to_string() )?;
@@ -501,11 +501,11 @@ pub mod Codegen {
             },Expr::Preincr(x) => {
                 let old= self.env.scopes.get(x.to_string() )?;
                 let new = Self::add(old.clone(), 1.0)?;
-                self.env.scopes.set(x.to_string(), new)?;
+                self.env.scopes.set(x.to_string(), new.clone())?;
                 Ok(new)
             },
             Expr::Unary_op { op, operand } => {
-                let x = self.eval_expr(expr)?;
+                let x = self.eval_expr(operand)?;
                 match op {
                     UN_OP::Bang => {
                         match x {
@@ -532,7 +532,7 @@ pub mod Codegen {
 
                 }
             },
-            Expr::Struct_enum_init { name, fields } {
+            Expr::Struct_enum_init { name, fields } => {
                 let mut fmap = HashMap::new();
                 for (f,expression) in fields{
                     fmap.insert(f.to_string(),self.eval_expr(expression)?);
@@ -543,12 +543,11 @@ pub mod Codegen {
             },
 
             Expr::Fxn_call { name, args } => {
+                let mut args = args.clone();
                 match name.as_str(){
                     "Println" | "Println!" | "println" | "println!" => {
                         if let Ok(Val::String(fmt)) = self.eval_expr(&args[0]){
-                            args.iter_mut().map(|f| self.eval_expr(f).unwrap_or(Val::Null));
-                           args.iter().skip(1).for_each(|f| {
-                           });
+                           let _ = args.iter_mut().map(|f| self.eval_expr(f).unwrap_or(Val::Null));
                            let mut segments = fmt.split("{}");
                            let mut ret = "".to_string();
                            for (i,part) in segments.by_ref().enumerate(){
@@ -562,15 +561,16 @@ pub mod Codegen {
                                         Val::Float(x) => ret.push_str(&x.to_string()),
                                         Val::Null => ret.push_str("None"),
                                         Val::Custom(x,y) => {
+                                            ret.push_str(&x);
                                             ret.push_str("{");
                                                for (member,Val) in y {
-                                                ret.push_str(&format!("{}:{}",member,match val{
-                                                    Val::Bool(x) => &x.to_string(),
-                                                    Val::Int(x) => &x.to_string(),
-                                                    Val::String(x) => &x,
-                                                    Val::Float(x) => &x.to_string(),
-                                                    Val::Null => "None",
-                                                    Val::Custom(m,n) => &m,
+                                                ret.push_str(&format!("{}:{}",member,match Val{
+                                                    Val::Bool(x) => x.to_string(),
+                                                    Val::Int(x) => x.to_string(),
+                                                    Val::String(x) => x,
+                                                    Val::Float(x) => x.to_string(),
+                                                    Val::Null => "None".to_string(),
+                                                    Val::Custom(m,_) => m,
                                                 }));
                                                } 
 
@@ -582,13 +582,10 @@ pub mod Codegen {
                            }
                             println!("{ret}\n");
                         }
-                        Ok(Val::Null)
                     },
                     "Print" | "Print!" | "print" | "print!" => {
                         if let Ok(Val::String(fmt)) = self.eval_expr(&args[0]){
-                            args.iter_mut().map(|f| self.eval_expr(f).unwrap_or(Val::Null));
-                           args.iter().skip(1).for_each(|f| {
-                           });
+                            let _ = args.iter_mut().map(|f| self.eval_expr(f).unwrap_or(Val::Null));
                            let mut segments = fmt.split("{}");
                            let mut ret = "".to_string();
                            for (i,part) in segments.by_ref().enumerate(){
@@ -602,15 +599,16 @@ pub mod Codegen {
                                         Val::Float(x) => ret.push_str(&x.to_string()),
                                         Val::Null => ret.push_str("None"),
                                         Val::Custom(x,y) => {
+                                            ret.push_str(&x);
                                             ret.push_str("{");
                                                for (member,Val) in y {
-                                                ret.push_str(&format!("{}:{}",member,match val{
-                                                    Val::Bool(x) => &x.to_string(),
-                                                    Val::Int(x) => &x.to_string(),
-                                                    Val::String(x) => &x,
-                                                    Val::Float(x) => &x.to_string(),
-                                                    Val::Null => "None",
-                                                    Val::Custom(m,n) => &m,
+                                                ret.push_str(&format!("{}:{}",member,match Val{
+                                                    Val::Bool(x) => x.to_string(),
+                                                    Val::Int(x) => x.to_string(),
+                                                    Val::String(x) => x,
+                                                    Val::Float(x) => x.to_string(),
+                                                    Val::Null => "None".to_string(),
+                                                    Val::Custom(m,_) => m,
                                                 }));
                                                } 
 
@@ -622,25 +620,26 @@ pub mod Codegen {
                            }
                             println!("{ret}");
                         }
-                        Ok(Val::Null)
                     },
                     "Scan" | "Scan!" | "scan" | "scan!"  => {
-                        let l = args.len();
-                          for i in  0..l {
-                            if let Ok(value) = self.eval_expr(&args[i]){
+                        let la = args.len();
+                        let mut cur = 0;
+                        while cur < la {
+                        let mut line = "".to_string();
+                        io::stdin().read_line(&mut line).expect("STDIO failed FATAL!!");
+                        let cli_args:Vec<String> = line.split_whitespace().map(|f| f.to_string()).collect();
+                            for i in cli_args{
+                                cur += self.try_read(args[cur].clone(),i)? as usize;
+                            }                            
+                        }
 
-                            }
-                          }
-
-
-
-                        Ok(Val::Null)
                     },
+                    _ => {}
 
                 };
 
-                let decl = self.env.func.get(name).ok_or_else(|| InterpretorError::UndefinedVariable(name.clone()))?;
-                if let Declare::Function {  rtype, args:params, body,.. } = &decl{
+                let decl = self.env.func.get(name).ok_or_else(|| InterpretorError::UndefinedVariable(name.clone()))?.clone();
+                if let Declare::Function { args:params, body,.. } = &decl{
                     if args.len() != params.len(){
                         return Err(InterpretorError::Custom("Fxn Arg count mismatched".to_string()));
                     }
@@ -651,7 +650,7 @@ pub mod Codegen {
                     }
                     let body = body.clone();
                     self.env.scopes.push();
-                    for (pname,val,mutable) in evaled{
+                    for (pname,val,mutable) in eval{
                         self.env.scopes.declare(pname, val, mutable);
                     }
                     
@@ -665,20 +664,32 @@ pub mod Codegen {
                 }else{
                     Err(InterpretorError::UndefinedVariable(name.clone()))
                 }
-
-
             },
             Expr::Field_access { obj, field } => {
                 let val = self.eval_expr(obj)?;
                 match val{
                     Val::Custom(_,fields) => {
-                        fields.get(field).cloned().ok_or_else(||InterpretorError::Custom(format!("Can't find field: {:?} of type {:?} on Object",field.to_string(), val.to_string())))
+                        fields.get(field).cloned().ok_or_else(|| InterpretorError::Custom(format!("Can't find field: {:?} on the Object",field.to_string())))
                     },
                     _ => Err(InterpretorError::Custom(format!("Can't find field: {:?} of type {:?} on Object",field.to_string(), val.to_string())))
                 }
             },
 
         }
+    }
+
+
+                                
+    pub fn try_read(&mut self,arg: Expr,i:String) -> InterpretorReturn<bool> {
+        if let Expr::Ident(name) = arg{
+            if self.env.scopes.is_declared(name.clone()){
+                let data = Self::get_Val(&i);
+                self.env.scopes.set(name,data)?;
+            }else{
+                panic!("Variable {name} is not declared and hence can't be read into!")
+            }
+        }
+        Ok(true)
     }
 
 
@@ -723,9 +734,6 @@ pub mod Codegen {
         Ok((name,map))
     }
 
-    // TODO: 
-    // FIXME:
-//
     pub fn get_Val(x:&str) -> Val{
         if x == "None" || x == "Null" || x == "none" || x == "NULL" {
             return Val::Null;   // Deals with None
