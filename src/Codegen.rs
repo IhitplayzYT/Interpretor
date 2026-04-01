@@ -20,9 +20,14 @@ pub mod Codegen {
     use core::panic;
     use std::{collections::HashMap, fmt::Display, io};
     use crate::Errors::Err::*;
+    use std::collections::HashSet;
+    use std::sync::LazyLock;
 
     type Codegen_result<T> = Result<T,CodegenErr>;
 
+    static STDIO_FXNS: LazyLock<HashSet<&str>> = LazyLock::new(|| {
+    HashSet::from(["print","println","log","Print","Log","Println","Scan","Scanf","Scanln","scan","scanf"])
+});
 
     #[derive(Debug,Clone)]
     pub struct Codegen {
@@ -169,8 +174,27 @@ pub mod Codegen {
         Ok(())
     }
 
+    fn gen_vec() -> Vec<(String,Type,bool)>{
+        let mut ret = Vec::new();
+        for i in 0..256{
+            ret.push((i.to_string(),Type::STRING,false));
+        }
+        ret
+    }
+
     pub fn Exec(&mut self,code: &Code) -> InterpretorReturn<bool>{
-            self.register(&Declare::Function { name: "println".to_string(), rtype: None, args: vec![("fmt".to_string(),Type::STRING,false),("a".to_string(),Type::STRING,false)], body: vec![] })?;  
+            let vec = Self::gen_vec();
+            self.register(&Declare::Function { name: "println".to_string(), rtype: None,args: vec.clone() , body: vec![] })?;  
+            self.register(&Declare::Function { name: "Println".to_string(), rtype: None,args: vec.clone() , body: vec![] })?;  
+            self.register(&Declare::Function { name: "Print".to_string(), rtype: None,args: vec.clone() , body: vec![] })?;  
+            self.register(&Declare::Function { name: "print".to_string(), rtype: None,args: vec.clone() , body: vec![] })?;  
+            self.register(&Declare::Function { name: "log".to_string(), rtype: None,args: vec.clone() , body: vec![] })?;  
+            self.register(&Declare::Function { name: "Log".to_string(), rtype: None,args: vec.clone() , body: vec![] })?;  
+            self.register(&Declare::Function { name: "Scan".to_string(), rtype: None,args: vec.clone() , body: vec![] })?;  
+            self.register(&Declare::Function { name: "scan".to_string(), rtype: None,args :vec.clone() , body: vec![] })?;  
+            self.register(&Declare::Function { name: "Scanf".to_string(), rtype: None,args :vec.clone() , body: vec![] })?;  
+            self.register(&Declare::Function { name: "scanf".to_string(), rtype: None,args: vec.clone() , body: vec![] })?;  
+            self.register(&Declare::Function { name: "Scanln".to_string(), rtype: None,args: vec.clone() , body: vec![] })?;  
         for decl in &code.Program{
             self.register(decl)?;
         }        
@@ -545,10 +569,12 @@ pub mod Codegen {
             Expr::Fxn_call { name, args } => {
                 let mut args = args.clone();
                 match name.as_str(){
-                    "Println" | "Println!" | "println" | "println!" => {
+                    "Println" | "println" | "log" | "Log" => {
                         if let Ok(Val::String(fmt)) = self.eval_expr(&args[0]){
                            let _ = args.iter_mut().map(|f| self.eval_expr(f).unwrap_or(Val::Null));
                            let mut segments = fmt.split("{}");
+                            let xos:Vec<&str> = segments.by_ref().collect();
+                           println!("{:?}\n",xos);
                            let mut ret = "".to_string();
                            for (i,part) in segments.by_ref().enumerate(){
                                 ret.push_str(part);
@@ -583,10 +609,12 @@ pub mod Codegen {
                             println!("{ret}\n");
                         }
                     },
-                    "Print" | "Print!" | "print" | "print!" => {
+                    "Print" | "print"  => {
                         if let Ok(Val::String(fmt)) = self.eval_expr(&args[0]){
                             let _ = args.iter_mut().map(|f| self.eval_expr(f).unwrap_or(Val::Null));
                            let mut segments = fmt.split("{}");
+                            let xos:Vec<&str> = segments.by_ref().collect();
+                           println!("{:?}\n",xos);
                            let mut ret = "".to_string();
                            for (i,part) in segments.by_ref().enumerate(){
                                 ret.push_str(part);
@@ -621,7 +649,7 @@ pub mod Codegen {
                             println!("{ret}");
                         }
                     },
-                    "Scan" | "Scan!" | "scan" | "scan!"  => {
+                    "Scan" | "scan" | "Scanln" | "scanf" | "Scanf" => {
                         let la = args.len();
                         let mut cur = 0;
                         while cur < la {
@@ -640,9 +668,12 @@ pub mod Codegen {
 
                 let decl = self.env.func.get(name).ok_or_else(|| InterpretorError::UndefinedVariable(name.clone()))?.clone();
                 if let Declare::Function { args:params, body,.. } = &decl{
+                    if !STDIO_FXNS.contains(name.as_str()){
                     if args.len() != params.len(){
                         return Err(InterpretorError::Custom("Fxn Arg count mismatched".to_string()));
                     }
+                }
+
                     let mut eval: Vec<(String,Val,bool)> = Vec::new();
                     for (arg_expr,(param_name,_,mutable)) in args.iter().zip(params.iter()){
                         let val = self.eval_expr(arg_expr)?;
