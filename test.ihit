@@ -5,18 +5,21 @@ struct x{
 
 fn factorial(n:i64) -> i64{
     let mut ret = n;
-    for i in 1..n{
+    let mut i = 1;
+    while i <= n{
         ret *= i;
+        if i == 5{
+            return ret;
+        }
+        i += 1;
     }
     return ret;
 }
 
 fn main (x: int, z: float) {
-
-let mut a = 10;
-let mut b = 0;
+let a = 0;
+let b = 10;
 let y = "pls"; 
-scan(a,b);
 for i in a..b{
     println("{}:{}",i,factorial(i));
 }

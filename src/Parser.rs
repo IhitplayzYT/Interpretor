@@ -531,10 +531,10 @@ pub mod PARSER {
         fn eval_if_else(&mut self) -> Parser_ret<Statmnt>{
             self.consume(&LTOK::IF)?;
             let has_paren = self.match_token(&[LTOK::LPAREN]);
-            let cond = self.eval_expr()?;
             if has_paren{
                 self.consume(&LTOK::RPAREN)?;
             }
+            let cond = self.eval_expr()?;
 
             self.consume(&LTOK::LBRACE)?;
             let then_branch = self.eval_block()?;

@@ -16,7 +16,7 @@
     dead_code
 )]
 pub mod Codegen {
-    use crate::{Ast::AST::{BIN_OP, Code, Declare, Expr, Statmnt, Type, UN_OP}, Errors::Err::CodegenReturn, Helper::Main::CLI};
+    use crate::{Ast::AST::{BIN_OP, Code, Declare, EnumVars, Expr, Statmnt, Type, UN_OP}, Errors::Err::CodegenReturn, Helper::Main::CLI};
     use core::panic;
     use std::{collections::HashMap, fmt::Display, io};
     use crate::Errors::Err::*;
@@ -48,7 +48,7 @@ pub mod Codegen {
     String(String),
     Bool(bool),
     Null,
-    Custom(String,HashMap<String,Val>)
+    Custom(String,HashMap<String,Val>),
     }
 
 
@@ -150,6 +150,16 @@ pub mod Codegen {
         }
     }
 
+/*
+    pub enum EnumVars{
+        Single(String),                     // res::error;
+        Tuple(String,Vec<Type>),            // Res::ok(i32,f64);
+        Struct(String,Vec<(String,Type)>),  // Res::Ok { val : i32 };
+
+    }
+*/
+
+
     pub fn register(&mut self,decl: &Declare) -> CodegenReturn<()> {
         match decl{
             Declare::Function {name,..} => {
@@ -158,9 +168,29 @@ pub mod Codegen {
             Declare::Struct { name,fields} => {
                 self.env.dtypes.insert(name.clone(), fields.clone());
             },
-            Declare::Enum { name:_name, variations:_variations } => {
-                // TODO:
-                // FIXME:
+            Declare::Enum { name, variations } => {
+                let mut v = Vec::new();                
+                variations.iter().for_each(| x| {
+                    match x{
+                        EnumVars::Single(a) => {
+                            v.push((a.to_string(),Type::NULL));
+                            self.env.dtypes.insert(a.to_string(),vec![]);
+                        },
+                        EnumVars::Struct(a, b) =>  {
+                            v.push((a.to_string(),Type::NULL));
+                            self.env.dtypes.insert(a.to_string(), b.to_vec());
+
+                        },
+                        EnumVars::Tuple(a, b) =>  {
+                            v.push((a.to_string(),Type::NULL));
+                            let f = b.iter().enumerate().map(|(i,t)| (i.to_string(),t.clone())).collect();
+                            self.env.dtypes.insert(a.to_string(), f);
+                        },
+                    }
+                });
+
+                self.env.dtypes.insert(name.clone(), v);
+
             },
 
         }
@@ -227,16 +257,15 @@ pub mod Codegen {
                 let value = self.eval_expr(val)?;
                 self.try_assign(target,op,value)?;
             },
+            // TODO: FIXME:
             Statmnt::If { cond, then_branch, else_branch } => {
                 let cbool = self.eval_expr(cond)?;
                 self.env.scopes.push();
                 if Self::is_truthy(&cbool){
-                    then_branch.iter().for_each(|f| self.exec_statmnt(f).unwrap());
-                }else{
-                    if let Some(branch) = else_branch{
-                        branch.iter().for_each(|f| self.exec_statmnt(f).unwrap());
+                    for s in then_branch { self.exec_statmnt(s)?; }
+                }else if let Some(branch) = else_branch{
+                    for s in branch { self.exec_statmnt(s)?; }
                     }
-                }
                 self.env.scopes.pop();
 
 
@@ -601,7 +630,7 @@ pub mod Codegen {
                                             ret.pop();
                                             ret.push_str("}>");
 
-                                        }
+                                        },
 
                                     }
                                 }
